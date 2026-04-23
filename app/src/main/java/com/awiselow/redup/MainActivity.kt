@@ -12,6 +12,8 @@ import androidx.appcompat.app.AppCompatActivity
 
 class MainActivity : AppCompatActivity() {
 
+    private var pendingOverlayCheck = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -35,6 +37,7 @@ class MainActivity : AppCompatActivity() {
         btnDim.setOnClickListener {
             if (!Settings.canDrawOverlays(this)) {
                 Toast.makeText(this, "Izinkan tampil di atas app lain dulu", Toast.LENGTH_LONG).show()
+                pendingOverlayCheck = true
                 try {
                     startActivity(Intent(
                         Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
@@ -56,9 +59,14 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        if (Settings.canDrawOverlays(this)) {
-            val seekBar = findViewById<SeekBar>(R.id.seekBarDim)
-            startDimService(seekBar.progress)
+        if (pendingOverlayCheck) {
+            pendingOverlayCheck = false
+            if (Settings.canDrawOverlays(this)) {
+                val seekBar = findViewById<SeekBar>(R.id.seekBarDim)
+                startDimService(seekBar.progress)
+            } else {
+                Toast.makeText(this, "Izin belum diberikan", Toast.LENGTH_SHORT).show()
+            }
         }
     }
 
