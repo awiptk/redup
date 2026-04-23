@@ -1,5 +1,6 @@
 package com.awiselow.redup
 
+import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -8,11 +9,21 @@ import android.widget.Button
 import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 
 class MainActivity : AppCompatActivity() {
 
-    private var pendingOverlayCheck = false
+    private val overlayPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) {
+        if (Settings.canDrawOverlays(this)) {
+            val seekBar = findViewById<SeekBar>(R.id.seekBarDim)
+            startDimService(seekBar.progress)
+        } else {
+            Toast.makeText(this, "Izin belum diberikan", Toast.LENGTH_SHORT).show()
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -37,17 +48,17 @@ class MainActivity : AppCompatActivity() {
         btnDim.setOnClickListener {
             if (!Settings.canDrawOverlays(this)) {
                 Toast.makeText(this, "Izinkan tampil di atas app lain dulu", Toast.LENGTH_LONG).show()
-                pendingOverlayCheck = true
                 try {
-                    val intent = Intent(
-                        Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                        Uri.parse("package:$packageName")
-                    ).apply {
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_HISTORY)
-                    }
-                    startActivity(intent)
+                    overlayPermissionLauncher.launch(
+                        Intent(
+                            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                            Uri.parse("package:$packageName")
+                        )
+                    )
                 } catch (e: Exception) {
-                    startActivity(Intent(Settings.ACTION_MANAGE_APPLICATIONS_SETTINGS))
+                    overlayPermissionLauncher.launch(
+                        Intent(Settings.ACTION_MANAGE_APPLICATIONS_SETTINGS)
+                    )
                 }
                 return@setOnClickListener
             }
@@ -57,19 +68,6 @@ class MainActivity : AppCompatActivity() {
         btnOff.setOnClickListener {
             sendBroadcast(Intent("com.awiselow.redup.EXIT"))
             Toast.makeText(this, "Redup dimatikan", Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    override fun onResume() {
-        super.onResume()
-        if (pendingOverlayCheck) {
-            pendingOverlayCheck = false
-            if (Settings.canDrawOverlays(this)) {
-                val seekBar = findViewById<SeekBar>(R.id.seekBarDim)
-                startDimService(seekBar.progress)
-            } else {
-                Toast.makeText(this, "Izin belum diberikan", Toast.LENGTH_SHORT).show()
-            }
         }
     }
 
