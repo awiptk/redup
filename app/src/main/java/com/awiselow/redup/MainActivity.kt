@@ -39,10 +39,13 @@ class MainActivity : AppCompatActivity() {
                 Toast.makeText(this, "Izinkan tampil di atas app lain dulu", Toast.LENGTH_LONG).show()
                 pendingOverlayCheck = true
                 try {
-                    startActivity(Intent(
+                    val intent = Intent(
                         Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
                         Uri.parse("package:$packageName")
-                    ))
+                    ).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_HISTORY)
+                    }
+                    startActivity(intent)
                 } catch (e: Exception) {
                     startActivity(Intent(Settings.ACTION_MANAGE_APPLICATIONS_SETTINGS))
                 }
