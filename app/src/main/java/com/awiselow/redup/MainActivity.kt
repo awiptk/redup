@@ -12,10 +12,6 @@ import androidx.appcompat.app.AppCompatActivity
 
 class MainActivity : AppCompatActivity() {
 
-    companion object {
-        const val REQ_OVERLAY = 1001
-    }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -38,39 +34,39 @@ class MainActivity : AppCompatActivity() {
 
         btnDim.setOnClickListener {
             if (!Settings.canDrawOverlays(this)) {
-                Toast.makeText(this, "Izinkan tampil di atas aplikasi lain", Toast.LENGTH_LONG).show()
-                val intent = Intent(
-                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                    Uri.parse("package:$packageName")
-                )
-                startActivityForResult(intent, REQ_OVERLAY)
+                Toast.makeText(this, "Izinkan tampil di atas app lain dulu", Toast.LENGTH_LONG).show()
+                try {
+                    startActivity(Intent(
+                        Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                        Uri.parse("package:$packageName")
+                    ))
+                } catch (e: Exception) {
+                    startActivity(Intent(Settings.ACTION_MANAGE_APPLICATIONS_SETTINGS))
+                }
                 return@setOnClickListener
             }
             startDimService(seekBar.progress)
         }
 
         btnOff.setOnClickListener {
-            stopService(Intent(this, DimService::class.java))
+            sendBroadcast(Intent("com.awiselow.redup.EXIT"))
             Toast.makeText(this, "Redup dimatikan", Toast.LENGTH_SHORT).show()
         }
     }
 
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode == REQ_OVERLAY) {
-            if (Settings.canDrawOverlays(this)) {
-                val seekBar = findViewById<SeekBar>(R.id.seekBarDim)
-                startDimService(seekBar.progress)
-            } else {
-                Toast.makeText(this, "Izin diperlukan untuk mengaktifkan redup", Toast.LENGTH_LONG).show()
-            }
+    override fun onResume() {
+        super.onResume()
+        if (Settings.canDrawOverlays(this)) {
+            val seekBar = findViewById<SeekBar>(R.id.seekBarDim)
+            startDimService(seekBar.progress)
         }
     }
 
     private fun startDimService(progress: Int) {
-        val intent = Intent(this, DimService::class.java)
-        intent.putExtra("alpha", progress)
-        startService(intent)
+        val intent = Intent(this, DimService::class.java).apply {
+            putExtra("alpha", progress)
+        }
+        startForegroundService(intent)
         Toast.makeText(this, "Redup aktif", Toast.LENGTH_SHORT).show()
     }
 }
