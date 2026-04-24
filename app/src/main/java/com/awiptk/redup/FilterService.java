@@ -13,7 +13,7 @@ import android.graphics.Color;
 import android.graphics.PixelFormat;
 import android.os.Build;
 import android.os.IBinder;
-import android.view.Gravity;
+import android.util.DisplayMetrics;
 import android.view.View;
 import android.view.WindowManager;
 
@@ -25,8 +25,6 @@ public class FilterService extends Service {
 
     private WindowManager wm;
     private View filterView;
-    private View navView;
-    private View statusView;
     private BroadcastReceiver updateReceiver;
 
     static final String CHANNEL_ID = "redup_channel";
@@ -68,86 +66,42 @@ public class FilterService extends Service {
         return START_STICKY;
     }
 
-    private int getType() {
-        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+    private void addFilterView() {
+        if (filterView != null) {
+            try { wm.removeView(filterView); } catch (Exception ignored) {}
+            filterView = null;
+        }
+
+        filterView = new View(this);
+        filterView.setBackgroundColor(getFilterColor());
+
+        DisplayMetrics dm = getResources().getDisplayMetrics();
+        int screenHeight = dm.heightPixels * 3;
+
+        int type = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
                 ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
                 : WindowManager.LayoutParams.TYPE_SYSTEM_OVERLAY;
-    }
 
-    private void addFilterView() {
-        removeAllViews();
-
-        int color = getFilterColor();
-
-        // Main filter — layar utama
-        filterView = new View(this);
-        filterView.setBackgroundColor(color);
-        WindowManager.LayoutParams mainParams = new WindowManager.LayoutParams(
+        WindowManager.LayoutParams params = new WindowManager.LayoutParams(
                 WindowManager.LayoutParams.MATCH_PARENT,
-                WindowManager.LayoutParams.MATCH_PARENT,
-                getType(),
+                screenHeight,
+                type,
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
                         | WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
                         | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
                         | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
                 PixelFormat.TRANSLUCENT
         );
-        wm.addView(filterView, mainParams);
+        params.x = 0;
+        params.y = -screenHeight / 3;
 
-        // Nav bar filter — overlay di bawah
-        navView = new View(this);
-        navView.setBackgroundColor(color);
-        WindowManager.LayoutParams navParams = new WindowManager.LayoutParams(
-                WindowManager.LayoutParams.MATCH_PARENT,
-                getNavBarHeight(),
-                getType(),
-                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
-                        | WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
-                        | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
-                        | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
-                PixelFormat.TRANSLUCENT
-        );
-        navParams.gravity = Gravity.BOTTOM;
-        wm.addView(navView, navParams);
-
-        // Status bar filter — overlay di atas
-        statusView = new View(this);
-        statusView.setBackgroundColor(color);
-        WindowManager.LayoutParams statusParams = new WindowManager.LayoutParams(
-                WindowManager.LayoutParams.MATCH_PARENT,
-                getStatusBarHeight(),
-                getType(),
-                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
-                        | WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
-                        | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
-                        | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
-                PixelFormat.TRANSLUCENT
-        );
-        navParams.gravity = Gravity.TOP;
-        wm.addView(statusView, statusParams);
-    }
-
-    private int getNavBarHeight() {
-        int resourceId = getResources().getIdentifier("navigation_bar_height", "dimen", "android");
-        return resourceId > 0 ? getResources().getDimensionPixelSize(resourceId) : 0;
-    }
-
-    private int getStatusBarHeight() {
-        int resourceId = getResources().getIdentifier("status_bar_height", "dimen", "android");
-        return resourceId > 0 ? getResources().getDimensionPixelSize(resourceId) : 0;
-    }
-
-    private void removeAllViews() {
-        if (filterView != null) { try { wm.removeView(filterView); } catch (Exception ignored) {} filterView = null; }
-        if (navView != null) { try { wm.removeView(navView); } catch (Exception ignored) {} navView = null; }
-        if (statusView != null) { try { wm.removeView(statusView); } catch (Exception ignored) {} statusView = null; }
+        wm.addView(filterView, params);
     }
 
     private void updateFilter() {
-        int color = getFilterColor();
-        if (filterView != null) filterView.setBackgroundColor(color);
-        if (navView != null) navView.setBackgroundColor(color);
-        if (statusView != null) statusView.setBackgroundColor(color);
+        if (filterView != null) {
+            filterView.setBackgroundColor(getFilterColor());
+        }
     }
 
     private int getFilterColor() {
@@ -184,7 +138,9 @@ public class FilterService extends Service {
     public void onDestroy() {
         super.onDestroy();
         isRunning = false;
-        removeAllViews();
+        if (filterView != null) {
+            try { wm.removeView(filterView); } catch (Exception ignored) {}
+        }
         if (updateReceiver != null) {
             try { unregisterReceiver(updateReceiver); } catch (Exception ignored) {}
         }
