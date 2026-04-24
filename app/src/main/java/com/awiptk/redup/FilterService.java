@@ -13,6 +13,7 @@ import android.graphics.Color;
 import android.graphics.PixelFormat;
 import android.os.Build;
 import android.os.IBinder;
+import android.provider.Settings;
 import android.view.View;
 import android.view.WindowManager;
 
@@ -20,13 +21,17 @@ public class FilterService extends Service {
 
     public static boolean isRunning = false;
     public static int opacity = 50;
-    public static int colorMode = 0; // 0=normal, 1=warm, 2=cool
+    public static int colorMode = 0;
 
     private WindowManager wm;
     private View filterView;
     private BroadcastReceiver updateReceiver;
 
-    private static final String CHANNEL_ID = "redup_channel";
+    static final String CHANNEL_ID = "redup_channel";
+    static final String ACTION_STOP = "com.awiptk.redup.STOP";
+    static final String ACTION_UPDATE = "com.awiptk.redup.UPDATE";
+    static final String ACTION_BRIGHTER = "com.awiptk.redup.BRIGHTER";
+    static final String ACTION_DARKER = "com.awiptk.redup.DARKER";
 
     @Override
     public void onCreate() {
@@ -37,6 +42,23 @@ public class FilterService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        if (intent != null && ACTION_STOP.equals(intent.getAction())) {
+            stopSelf();
+            return START_NOT_STICKY;
+        }
+        if (intent != null && ACTION_BRIGHTER.equals(intent.getAction())) {
+            opacity = Math.max(0, opacity - 10);
+            updateFilter();
+            updateNotification();
+            return START_STICKY;
+        }
+        if (intent != null && ACTION_DARKER.equals(intent.getAction())) {
+            opacity = Math.min(90, opacity + 10);
+            updateFilter();
+            updateNotification();
+            return START_STICKY;
+        }
+
         isRunning = true;
         startForeground(1, buildNotification());
         addFilterView();
@@ -46,10 +68,15 @@ public class FilterService extends Service {
 
     private void addFilterView() {
         if (filterView != null) {
-            wm.removeView(filterView);
+            try { wm.removeView(filterView); } catch (Exception ignored) {}
         }
         filterView = new View(this);
         filterView.setBackgroundColor(getFilterColor());
+
+        int flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                | WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+                | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
+                | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS;
 
         WindowManager.LayoutParams params = new WindowManager.LayoutParams(
                 WindowManager.LayoutParams.MATCH_PARENT,
@@ -57,20 +84,24 @@ public class FilterService extends Service {
                 Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
                         ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
                         : WindowManager.LayoutParams.TYPE_SYSTEM_OVERLAY,
-                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
-                        | WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
-                        | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+                flags,
                 PixelFormat.TRANSLUCENT
         );
         wm.addView(filterView, params);
     }
 
+    private void updateFilter() {
+        if (filterView != null) {
+            filterView.setBackgroundColor(getFilterColor());
+        }
+    }
+
     private int getFilterColor() {
         int alpha = (int) (opacity / 100.0f * 255);
         switch (colorMode) {
-            case 1: return Color.argb(alpha, 255, 140, 0);   // warm
-            case 2: return Color.argb(alpha, 0, 100, 255);   // cool
-            default: return Color.argb(alpha, 0, 0, 0);      // normal
+            case 1: return Color.argb(alpha, 255, 140, 0);
+            case 2: return Color.argb(alpha, 0, 100, 255);
+            default: return Color.argb(alpha, 0, 0, 0);
         }
     }
 
@@ -78,12 +109,11 @@ public class FilterService extends Service {
         updateReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
-                if (filterView != null) {
-                    filterView.setBackgroundColor(getFilterColor());
-                }
+                updateFilter();
+                updateNotification();
             }
         };
-        IntentFilter filter = new IntentFilter("com.awiptk.redup.UPDATE");
+        IntentFilter filter = new IntentFilter(ACTION_UPDATE);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(updateReceiver, filter, RECEIVER_NOT_EXPORTED);
         } else {
@@ -91,12 +121,21 @@ public class FilterService extends Service {
         }
     }
 
+    private void updateNotification() {
+        NotificationManager nm = getSystemService(NotificationManager.class);
+        nm.notify(1, buildNotification());
+    }
+
     @Override
     public void onDestroy() {
         super.onDestroy();
         isRunning = false;
-        if (filterView != null) wm.removeView(filterView);
-        if (updateReceiver != null) unregisterReceiver(updateReceiver);
+        if (filterView != null) {
+            try { wm.removeView(filterView); } catch (Exception ignored) {}
+        }
+        if (updateReceiver != null) {
+            try { unregisterReceiver(updateReceiver); } catch (Exception ignored) {}
+        }
     }
 
     private void createNotificationChannel() {
@@ -108,20 +147,33 @@ public class FilterService extends Service {
     }
 
     private Notification buildNotification() {
-        Intent stopIntent = new Intent(this, FilterService.class);
-        stopIntent.setAction("STOP");
         PendingIntent stopPending = PendingIntent.getService(
-                this, 0, stopIntent, PendingIntent.FLAG_IMMUTABLE);
+                this, 0,
+                new Intent(this, FilterService.class).setAction(ACTION_STOP),
+                PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
 
-        Intent openIntent = new Intent(this, MainActivity.class);
+        PendingIntent brighterPending = PendingIntent.getService(
+                this, 1,
+                new Intent(this, FilterService.class).setAction(ACTION_BRIGHTER),
+                PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+
+        PendingIntent darkerPending = PendingIntent.getService(
+                this, 2,
+                new Intent(this, FilterService.class).setAction(ACTION_DARKER),
+                PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+
         PendingIntent openPending = PendingIntent.getActivity(
-                this, 0, openIntent, PendingIntent.FLAG_IMMUTABLE);
+                this, 0,
+                new Intent(this, MainActivity.class),
+                PendingIntent.FLAG_IMMUTABLE);
 
         return new Notification.Builder(this, CHANNEL_ID)
-                .setContentTitle("Redup aktif")
-                .setContentText("Filter layar sedang berjalan")
+                .setContentTitle("Redup — " + opacity + "% gelap")
+                .setContentText("Ketuk untuk buka pengaturan")
                 .setSmallIcon(android.R.drawable.ic_menu_view)
                 .setContentIntent(openPending)
+                .addAction(android.R.drawable.arrow_up_float, "Terang", brighterPending)
+                .addAction(android.R.drawable.arrow_down_float, "Gelap", darkerPending)
                 .addAction(android.R.drawable.ic_delete, "Matikan", stopPending)
                 .setOngoing(true)
                 .build();

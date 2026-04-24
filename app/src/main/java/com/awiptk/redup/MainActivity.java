@@ -6,27 +6,30 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.widget.Button;
+import android.widget.RadioButton;
+import android.widget.RadioGroup;
 import android.widget.SeekBar;
 import android.widget.TextView;
-import android.widget.RadioGroup;
 
 public class MainActivity extends Activity {
 
     private static final int REQUEST_OVERLAY = 1;
+    private Button btnToggle;
+    private TextView tvOpacity;
+    private SeekBar seekOpacity;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        Button btnToggle = findViewById(R.id.btn_toggle);
-        SeekBar seekOpacity = findViewById(R.id.seek_opacity);
-        TextView tvOpacity = findViewById(R.id.tv_opacity);
+        btnToggle = findViewById(R.id.btn_toggle);
+        seekOpacity = findViewById(R.id.seek_opacity);
+        tvOpacity = findViewById(R.id.tv_opacity);
         RadioGroup rgColor = findViewById(R.id.rg_color);
 
         seekOpacity.setMax(90);
-        seekOpacity.setProgress(FilterService.opacity);
-        tvOpacity.setText(FilterService.opacity + "%");
+        syncUI();
 
         seekOpacity.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
@@ -34,7 +37,7 @@ public class MainActivity extends Activity {
                 tvOpacity.setText(progress + "%");
                 FilterService.opacity = progress;
                 if (FilterService.isRunning) {
-                    sendBroadcast(new Intent("com.awiptk.redup.UPDATE"));
+                    sendBroadcast(new Intent(FilterService.ACTION_UPDATE));
                 }
             }
             @Override public void onStartTrackingTouch(SeekBar seekBar) {}
@@ -46,7 +49,7 @@ public class MainActivity extends Activity {
             else if (checkedId == R.id.rb_warm) FilterService.colorMode = 1;
             else if (checkedId == R.id.rb_cool) FilterService.colorMode = 2;
             if (FilterService.isRunning) {
-                sendBroadcast(new Intent("com.awiptk.redup.UPDATE"));
+                sendBroadcast(new Intent(FilterService.ACTION_UPDATE));
             }
         });
 
@@ -59,27 +62,40 @@ public class MainActivity extends Activity {
             }
             toggleFilter();
         });
-
-        updateButton(btnToggle);
     }
 
     private void toggleFilter() {
-        Button btnToggle = findViewById(R.id.btn_toggle);
         if (FilterService.isRunning) {
             stopService(new Intent(this, FilterService.class));
+            FilterService.isRunning = false;
         } else {
             startService(new Intent(this, FilterService.class));
+            FilterService.isRunning = true;
         }
-        updateButton(btnToggle);
+        updateButton();
     }
 
-    private void updateButton(Button btn) {
-        btn.setText(FilterService.isRunning ? "Matikan Filter" : "Aktifkan Filter");
+    private void syncUI() {
+        seekOpacity.setProgress(FilterService.opacity);
+        tvOpacity.setText(FilterService.opacity + "%");
+        updateButton();
+    }
+
+    private void updateButton() {
+        btnToggle.setText(FilterService.isRunning ? "Matikan Filter" : "Aktifkan Filter");
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        updateButton(findViewById(R.id.btn_toggle));
+        syncUI();
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQUEST_OVERLAY && Settings.canDrawOverlays(this)) {
+            toggleFilter();
+        }
     }
 }
