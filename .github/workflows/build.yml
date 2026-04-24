@@ -8,23 +8,35 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    container: termux/termux-docker:latest
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Tools
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Install Android Build Tools
         run: |
-          apt update && apt upgrade -y
-          apt install -y openjdk-17 aapt2 dx zipalign apksigner zip wget
+          sudo apt update
+          sudo apt install -y aapt2 zipalign apksigner zip wget
+
+      - name: Download dx
+        run: |
+          mkdir -p $HOME/bin
+          wget -q -O $HOME/bin/dx https://raw.githubusercontent.com/termux/termux-app/master/scripts/dx
+          chmod +x $HOME/bin/dx
+          echo "$HOME/bin" >> $GITHUB_PATH
 
       - name: Download android.jar
         run: |
-          mkdir -p ~/android-sdk/platforms/android-30
-          wget -q -O ~/android-sdk/platforms/android-30/android.jar \
+          mkdir -p $HOME/android-sdk/platforms/android-30
+          wget -q -O $HOME/android-sdk/platforms/android-30/android.jar \
             https://raw.githubusercontent.com/termux/termux-app/master/scripts/android.jar
-          echo "ANDROID_JAR=~/android-sdk/platforms/android-30/android.jar" >> $GITHUB_ENV
+          echo "ANDROID_JAR=$HOME/android-sdk/platforms/android-30/android.jar" >> $GITHUB_ENV
 
       - name: Decode Keystore
         run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > release.keystore
