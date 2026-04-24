@@ -11,10 +11,8 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.graphics.Color;
 import android.graphics.PixelFormat;
-import android.graphics.Point;
 import android.os.Build;
 import android.os.IBinder;
-import android.view.Display;
 import android.view.View;
 import android.view.WindowManager;
 
@@ -75,18 +73,13 @@ public class FilterService extends Service {
         filterView = new View(this);
         filterView.setBackgroundColor(getFilterColor());
 
-        // Dapatkan ukuran layar real (termasuk status bar & nav bar)
-        Display display = wm.getDefaultDisplay();
-        Point realSize = new Point();
-        display.getRealSize(realSize);
-
         int type = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
                 ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
                 : WindowManager.LayoutParams.TYPE_SYSTEM_OVERLAY;
 
         WindowManager.LayoutParams params = new WindowManager.LayoutParams(
-                realSize.x,
-                realSize.y,
+                WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.MATCH_PARENT,
                 type,
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
                         | WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
