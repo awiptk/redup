@@ -27,15 +27,14 @@ jobs:
           echo "ANDROID_JAR=~/android-sdk/platforms/android-30/android.jar" >> $GITHUB_ENV
 
       - name: Decode Keystore
-        run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > release.keystore
+        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > release.keystore
 
       - name: Build APK
         run: |
           chmod +x build.sh
           bash build.sh
 
-      - name: Sign APK with Release Keystore
+      - name: Sign APK
         run: |
           apksigner sign \
             --ks release.keystore \
@@ -45,7 +44,7 @@ jobs:
             --out output/Redup-release.apk \
             output/aligned.apk
 
-      - name: Upload Release APK
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: Redup-Release
