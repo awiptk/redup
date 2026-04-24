@@ -1,6 +1,5 @@
 package com.awiselow.redup
 
-import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -47,14 +46,14 @@ class MainActivity : AppCompatActivity() {
 
         btnDim.setOnClickListener {
             if (!Settings.canDrawOverlays(this)) {
-                Toast.makeText(this, "Izinkan tampil di atas app lain dulu", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, "Buka: Pengaturan → Manajemen Aplikasi → Redup → Izin → Tampilkan di atas app lain", Toast.LENGTH_LONG).show()
                 try {
-                    overlayPermissionLauncher.launch(
-                        Intent(
-                            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                            Uri.parse("package:$packageName")
-                        )
-                    )
+                    // Coba buka detail app langsung
+                    val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                        data = Uri.parse("package:$packageName")
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    overlayPermissionLauncher.launch(intent)
                 } catch (e: Exception) {
                     overlayPermissionLauncher.launch(
                         Intent(Settings.ACTION_MANAGE_APPLICATIONS_SETTINGS)
