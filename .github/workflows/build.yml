@@ -19,10 +19,29 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Install Android Build Tools
+      - name: Install Tools
         run: |
           sudo apt update
-          sudo apt install -y aapt2 zipalign apksigner zip wget
+          sudo apt install -y zipalign apksigner zip wget unzip
+
+      - name: Download Android SDK Tools
+        run: |
+          # Download commandlinetools
+          wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+          unzip -q commandlinetools-linux-11076708_latest.zip
+          mkdir -p $HOME/android-sdk/cmdline-tools
+          mv cmdline-tools $HOME/android-sdk/cmdline-tools/latest
+          
+          # Set environment
+          export ANDROID_HOME=$HOME/android-sdk
+          echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
+          
+          # Install build-tools
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "build-tools;34.0.0" "platforms;android-34" --sdk_root=$ANDROID_HOME
+          
+          # Set paths
+          echo "$ANDROID_HOME/build-tools/34.0.0" >> $GITHUB_PATH
+          echo "ANDROID_JAR=$ANDROID_HOME/platforms/android-34/android.jar" >> $GITHUB_ENV
 
       - name: Download dx
         run: |
@@ -30,13 +49,6 @@ jobs:
           wget -q -O $HOME/bin/dx https://raw.githubusercontent.com/termux/termux-app/master/scripts/dx
           chmod +x $HOME/bin/dx
           echo "$HOME/bin" >> $GITHUB_PATH
-
-      - name: Download android.jar
-        run: |
-          mkdir -p $HOME/android-sdk/platforms/android-30
-          wget -q -O $HOME/android-sdk/platforms/android-30/android.jar \
-            https://raw.githubusercontent.com/termux/termux-app/master/scripts/android.jar
-          echo "ANDROID_JAR=$HOME/android-sdk/platforms/android-30/android.jar" >> $GITHUB_ENV
 
       - name: Decode Keystore
         run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > release.keystore
