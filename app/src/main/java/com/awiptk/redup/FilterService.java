@@ -13,7 +13,6 @@ import android.graphics.Color;
 import android.graphics.PixelFormat;
 import android.os.Build;
 import android.os.IBinder;
-import android.util.DisplayMetrics;
 import android.view.View;
 import android.view.WindowManager;
 
@@ -75,25 +74,18 @@ public class FilterService extends Service {
         filterView = new View(this);
         filterView.setBackgroundColor(getFilterColor());
 
-        DisplayMetrics dm = getResources().getDisplayMetrics();
-        int screenHeight = dm.heightPixels * 3;
-
         int type = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
                 ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
                 : WindowManager.LayoutParams.TYPE_SYSTEM_OVERLAY;
 
         WindowManager.LayoutParams params = new WindowManager.LayoutParams(
                 WindowManager.LayoutParams.MATCH_PARENT,
-                screenHeight,
+                WindowManager.LayoutParams.MATCH_PARENT,
                 type,
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
-                        | WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
-                        | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
-                        | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+                        | WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
                 PixelFormat.TRANSLUCENT
         );
-        params.x = 0;
-        params.y = -screenHeight / 3;
 
         wm.addView(filterView, params);
     }
@@ -108,7 +100,7 @@ public class FilterService extends Service {
         int alpha = (int) (opacity / 100.0f * 255);
         switch (colorMode) {
             case 1: return Color.argb(alpha, 255, 140, 0);
-            case 2: return Color.argb(alpha, 0, 100, 255);
+            case 2: return Color.argb(alpha, 0, 80, 200);
             default: return Color.argb(alpha, 0, 0, 0);
         }
     }
